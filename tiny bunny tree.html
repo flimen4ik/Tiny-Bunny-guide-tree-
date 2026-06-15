@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tiny Bunny — карта выборов</title>
+<style>
+  :root{--bg:#101116;--panel:#171a22;--line:#555b66;--text:#eef1f6;--muted:#aeb6c4;--choice:#2a3446;--flag:#3a2f20;--bad:#4a2023;--good:#1f3d31;--end:#3b334f;--chapter:#242833;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif;overflow:hidden}
+  .topbar{position:fixed;z-index:10;left:0;right:0;top:0;height:54px;background:#0b0c11;border-bottom:1px solid #2b303b;display:flex;align-items:center;gap:12px;padding:0 14px;box-sizing:border-box}
+  .topbar b{font-size:16px}.topbar span{color:var(--muted);font-size:13px}.topbar input{margin-left:auto;background:#171a22;border:1px solid #343a46;color:#fff;border-radius:8px;padding:8px 10px;width:270px}.btn{background:#222938;border:1px solid #3b4454;color:#fff;border-radius:8px;padding:8px 10px;cursor:pointer}
+  #viewport{position:absolute;top:54px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}#viewport:active{cursor:grabbing}
+  #world{position:absolute;transform-origin:0 0;width:8200px;height:5000px}
+  svg{position:absolute;left:0;top:0;width:8200px;height:5000px;overflow:visible}.edge{stroke:var(--line);stroke-width:2;fill:none}.edgeLabel{font-size:18px;fill:#c7cfdd;text-shadow:0 1px 2px #000}
+  .chapterBand{position:absolute;left:80px;width:7900px;height:46px;background:linear-gradient(90deg,#303746,#1c202a);border:1px solid #444b5b;border-radius:12px;display:flex;align-items:center;padding-left:22px;font-weight:800;letter-spacing:.08em;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+  .node{position:absolute;width:250px;min-height:58px;border-radius:12px;border:1px solid #596171;background:var(--choice);padding:10px 12px;box-sizing:border-box;box-shadow:0 10px 24px rgba(0,0,0,.35);font-size:14px;line-height:1.25;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}.node .small{display:block;color:var(--muted);font-size:12px;margin-top:4px}.node.choice{background:#263247}.node.flag{background:var(--flag)}.node.bad{background:var(--bad)}.node.good{background:var(--good)}.node.end{background:var(--end);border-color:#75669a}.node.root{background:#243042;border-color:#7184a8;font-size:16px;font-weight:800}.node.hidden{opacity:.13}.edge.hidden,.edgeLabel.hidden{opacity:.05}.legend{position:absolute;left:90px;top:4050px;width:7800px;color:#c7cfdd;font-size:18px;line-height:1.5}.legend code{background:#222938;padding:2px 6px;border-radius:5px}.warn{color:#ffcf85}.src{font-size:14px;color:#99a4b5;margin-top:16px}
+
+  .edge.route-polina{stroke:#ff75ad}.edge.route-alice{stroke:#62b8ff}.edge.route-neutral{stroke:#aab2c2}.edge.route-bad{stroke:#ff6d70}.edge.route-good{stroke:#65d489}.edge.route-item{stroke:#ffd16a}.edge.route-end{stroke:#b59cff}
+  .edge{stroke-linecap:round;stroke-linejoin:round;marker-end:url(#arrowNeutral);opacity:.92}.edge.dim{opacity:.10}.edge.hot{stroke-width:5;filter:drop-shadow(0 0 7px currentColor);opacity:1}.edge.dashed{stroke-dasharray:10 8}
+  .port{stroke:#0b0c11;stroke-width:3;opacity:.95}.port.dim{opacity:.10}.port.hot{r:7;filter:drop-shadow(0 0 6px #fff)}
+  #labels{position:absolute;left:0;top:0;width:8200px;height:5000px;pointer-events:none;z-index:3}.linkLabel{position:absolute;transform:translate(-50%,-50%);font-size:13px;line-height:1;background:#0b0c11;border:1px solid #596171;color:#eaf0fb;border-radius:999px;padding:5px 8px;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,.45)}.linkLabel.route-polina{border-color:#ff75ad;color:#ffd4e4}.linkLabel.route-alice{border-color:#62b8ff;color:#d5efff}.linkLabel.route-bad{border-color:#ff6d70;color:#ffd4d5}.linkLabel.route-good{border-color:#65d489;color:#d7ffe9}.linkLabel.route-item{border-color:#ffd16a;color:#fff1be}.linkLabel.route-end{border-color:#b59cff;color:#eee6ff}.linkLabel.dim{opacity:.10}.linkLabel.hot{opacity:1;transform:translate(-50%,-50%) scale(1.15);z-index:20}
+  .node{z-index:5}.node:hover{outline:3px solid rgba(255,255,255,.35);filter:brightness(1.15)}
+  .chapterBand{z-index:4}.chapterBand:after{content:"";position:absolute;left:0;right:0;bottom:-12px;height:2px;background:linear-gradient(90deg,transparent,#758093,transparent);opacity:.8}
+  .miniLegend{position:absolute;z-index:9;left:90px;top:20px;background:#0b0c11;border:1px solid #3b4454;border-radius:12px;padding:10px 12px;font-size:13px;color:#cbd3df;display:flex;gap:14px;align-items:center}.miniLegend span{display:inline-flex;align-items:center;gap:5px}.dot{width:12px;height:12px;border-radius:50%;display:inline-block}.pink{background:#ff75ad}.blue{background:#d97706}.red{background:#ff6d70}.green{background:#65d489}.gold{background:#84cc16}.violet{background:#b59cff}
+
+.sourceNote{position:absolute;left:90px;top:4120px;width:7800px;color:#99a4b5;font-size:16px;line-height:1.4}
+
+  .node.pathHit{outline:3px solid #fff;filter:brightness(1.25);box-shadow:0 0 18px rgba(255,255,255,.35),0 10px 24px rgba(0,0,0,.35)}
+  .edge.pathHit{stroke-width:6;opacity:1;filter:drop-shadow(0 0 8px currentColor)}
+  .linkLabel.pathHit{transform:translate(-50%,-50%) scale(1.18);z-index:30;opacity:1}
+  .port.pathHit{r:7;filter:drop-shadow(0 0 6px #fff)}
+  .endingPanel{position:fixed;left:20px;top:80px;width:390px;background:#0b0c11;border:1px solid #3b4454;border-radius:12px;padding:12px;color:#eef1f6;z-index:9999;box-shadow:0 8px 25px rgba(0,0,0,.5);font-size:13px}
+  .endingPanel h3{margin:0 0 10px 0}.endingPanel select{width:100%;background:#171a22;border:1px solid #343a46;color:#fff;border-radius:8px;padding:8px 10px;margin-bottom:8px}.endingPanel button{background:#222938;border:1px solid #3b4454;color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;margin-right:6px}.endingPanel .hint{color:#99a4b5;line-height:1.35;margin-top:8px}.endingPanel .routeText{color:#ffd16a;line-height:1.35;margin-top:8px;white-space:pre-wrap}
+
+
+.collapsibleHeader{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.collapseBtn{background:#222938;border:1px solid #3b4454;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px}
+.collapsed .panelBody{display:none}
+
+
+/* UX fix: карта двигается как приложение, без случайного выделения текста */
+html, body, #viewport, #world, svg, .node, .chapterBand, .linkLabel, .miniLegend,
+.endingPanel, #evidencePanel, .topbar, button {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+input, select, textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+body.dragging, body.dragging * {
+  cursor: grabbing !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+
+/* LIGHT THEME — мягкая светлая палитра без потери читаемости */
+:root{
+  --bg:#f4efe6;
+  --panel:#fffaf1;
+  --line:#7d8794;
+  --text:#1f2430;
+  --muted:#5f6b7a;
+  --choice:#e7eef9;
+  --flag:#fff1cf;
+  --bad:#ffe1df;
+  --good:#dff4e8;
+  --end:#eee7ff;
+  --chapter:#d9e2f2;
+}
+html,body{
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,255,255,.9), transparent 28%),
+    linear-gradient(180deg,#f7f1e8 0%,#efe8dd 100%);
+  color:var(--text);
+}
+.topbar{
+  background:#fffaf1;
+  border-bottom:1px solid #c8beb1;
+  box-shadow:0 4px 16px rgba(80,60,35,.08);
+}
+.topbar b{color:#1f2430}
+.topbar span{color:#667080}
+.topbar input{
+  background:#fff;
+  border:1px solid #b8c0cc;
+  color:#1f2430;
+}
+.btn,.endingPanel button,.collapseBtn{
+  background:#edf2fb;
+  border:1px solid #aeb8c7;
+  color:#1f2430;
+}
+.btn:hover,.endingPanel button:hover,.collapseBtn:hover{filter:brightness(.96)}
+.chapterBand{
+  background:linear-gradient(90deg,#d9e2f2,#edf2fb);
+  border-color:#aeb8c7;
+  color:#1f2430;
+  box-shadow:0 8px 18px rgba(90,70,45,.10);
+}
+.chapterBand:after{
+  background:linear-gradient(90deg,transparent,#aeb8c7,transparent);
+}
+.node{
+  color:#1f2430;
+  border-color:#9da8b8;
+  box-shadow:0 10px 22px rgba(80,60,35,.13);
+}
+.node .small{color:#566273}
+.node.choice{background:#e7eef9}
+.node.flag{background:#e9f8c9}
+.node.bad{background:#ffe1df}
+.node.good{background:#dff4e8}
+.node.end{background:#eee7ff;border-color:#8f7bc6;min-height:205px;width:340px;font-size:13px;align-items:flex-start;text-align:left}.node.end b{font-size:15px;align-self:center;text-align:center;width:100%;margin-bottom:4px}.node.end .small{font-size:11.8px;line-height:1.28;text-align:left}.node.check{background:#fff3cd;border-color:#d97706}.node.check{background:#fff3cd;border-color:#d97706}
+.node.root{background:#dbe7f8;border-color:#7f93b7;color:#1f2430}
+.node.hidden{opacity:.16}
+.node:hover{outline:3px solid rgba(73,96,135,.35);filter:brightness(1.02)}
+.edge.route-polina{stroke:#c33672}
+.edge.route-alice{stroke:#d97706}
+.edge.route-neutral{stroke:#6f7b8a}
+.edge.route-bad{stroke:#d14b4b}
+.edge.route-good{stroke:#2d9461}
+.edge.route-item{stroke:#84cc16}
+.edge.route-end{stroke:#7056b8}
+.edge{opacity:.88}
+.edge.dim,.linkLabel.dim,.port.dim{opacity:.12}
+.edge.hot,.edge.pathHit{filter:drop-shadow(0 0 6px rgba(40,60,90,.45))}
+.linkLabel{
+  background:#fffaf1;
+  border-color:#aeb8c7;
+  color:#1f2430;
+  box-shadow:0 3px 12px rgba(80,60,35,.15);
+}
+.linkLabel.route-polina{border-color:#c33672;color:#8e1f4f}
+.linkLabel.route-alice{border-color:#d97706;color:#92400e}
+.linkLabel.route-bad{border-color:#d14b4b;color:#973232}
+.linkLabel.route-good{border-color:#2d9461;color:#1f6a45}
+.linkLabel.route-item{border-color:#84cc16;color:#4d7c0f}
+.linkLabel.route-end{border-color:#7056b8;color:#4f3b86}
+.port{stroke:#fffaf1}
+.miniLegend,.endingPanel,#evidencePanel{
+  background:#fffaf1 !important;
+  border-color:#b8c0cc !important;
+  color:#1f2430 !important;
+  box-shadow:0 8px 25px rgba(80,60,35,.14) !important;
+}
+.miniLegend{color:#384252}
+.endingPanel select{
+  background:#fff;
+  border:1px solid #b8c0cc;
+  color:#1f2430;
+}
+.endingPanel .hint,#evidencePanel div[style*="color:#99a4b5"],.sourceNote{color:#667080 !important}
+.endingPanel .routeText{color:#8a6400}
+.sourceNote{color:#667080}
+.node.pathHit{
+  outline:4px solid #1f78b8;
+  filter:brightness(1.03);
+  box-shadow:0 0 0 4px rgba(31,120,184,.12),0 10px 22px rgba(80,60,35,.16);
+}
+.linkLabel.pathHit{
+  box-shadow:0 0 0 3px rgba(31,120,184,.16),0 3px 12px rgba(80,60,35,.18);
+}
+body.dragging, body.dragging *{cursor:grabbing !important}
+
+</style>
+</head><body>
+<div class="topbar"><b>Tiny Bunny / Зайчик — flowchart выборов · светлая тема</b><span>карточки концовок названы по достижениям Steam; описания внутри</span><button class="btn" id="reset">центр</button><button class="btn" id="zin">+</button><button class="btn" id="zout">−</button><input id="search" placeholder="поиск: Полина, амулет, концовка..." /></div>
+
+<div class="endingPanel" id="endingPanel"><div class="collapsibleHeader"><h3>🎯 Поиск пути к концовке</h3><button class="collapseBtn" onclick="togglePanel('endingPanel')">−</button></div><div class="panelBody">
+  <h3>🎯 Поиск пути к концовке</h3>
+  <select id="endingSelect">
+    <option value="">Выбери концовку...</option>
+  </select>
+  <button id="showEndingPath">Показать путь</button>
+  <button id="clearEndingPath">Сброс</button>
+  <div class="hint">В списке указаны названия достижений Steam. В карточках ниже: достижение, название концовки и что происходит в финале.</div>
+  <div id="endingRouteText" class="routeText"></div></div></div>
+
+<div id="viewport"><div id="world"><svg id="svg"></svg><div id="labels"></div><div class="miniLegend"><span><i class="dot pink"></i>Полина</span><span><i class="dot blue"></i>Алиса (лиса)</span><span><i class="dot gold"></i>предмет/флаг</span><span><i class="dot red"></i>плохое последствие</span><span><i class="dot violet"></i>к концовке</span></div></div></div>
+<script>
+const nodes=[
+{id:'start',x:1840,y:90,t:'СТАРТ',s:'общие флаги копятся до V эпизода',c:'root'},
+{id:'c1',x:80,y:210,t:'ГЛАВА I — стартовые флаги',band:true},
+{id:'phone',x:1740,y:300,t:'Взять номер милиционера?',s:'да = улика/звонок в V; нет = часть расследования закрыта',c:'choice'},
+{id:'p_yes',x:1540,y:430,t:'ВЗЯТЬ',s:'флаг: номер милиционера',c:'flag'},
+{id:'p_no',x:1940,y:430,t:'НЕ ВЗЯТЬ',s:'нельзя полноценно позвонить/закрывает часть хороших условий',c:'bad'},
+{id:'c2',x:80,y:600,t:'ГЛАВА II — выбор основной ветки',band:true},
+{id:'semen',x:1740,y:700,t:'Семён давит на Антона',s:'первый большой разворот рута',c:'choice'},
+{id:'fight',x:1380,y:850,t:'ДАТЬ ОТПОР',s:'открывает выбор Полина/Алиса',c:'flag'},
+{id:'submit',x:2100,y:850,t:'СТЕРПЕТЬ / СДАТЬСЯ',s:'уход в ветку Зайчика/одиночки',c:'bad'},
+{id:'walk',x:1380,y:1000,t:'С кем идти?',s:'фиксирует приверженность ветке',c:'choice'},
+{id:'polina_route',x:1040,y:1150,t:'ПОЛИНА',s:'ветка Полины',c:'flag'},
+{id:'polina_send',x:1040,y:1280,t:'ПОСЛАТЬ',s:'отказаться от маски/игры хулиганов; условие раннего финала',c:'flag'},
+{id:'alice_route',x:1720,y:1150,t:'АЛИСА',s:'ветка Алисы',c:'flag'},
+{id:'mask2',x:2100,y:1000,t:'Маска / звери',s:'проверка на ранний плохой исход',c:'choice'},
+{id:'wear2',x:1940,y:1150,t:'НАДЕТЬ / принять игру',s:'ранняя плохая ветка или закрепление Зайчика',c:'bad'},
+{id:'send2',x:2260,y:1150,t:'ПОСЛАТЬ',s:'можно продолжать основную историю',c:'flag'},
+{id:'c3',x:80,y:1350,t:'ГЛАВА III — закрепление ветки и амулет',band:true},
+{id:'bunny_route',x:2140,y:1450,t:'ВЕТКА ЗАЙЧИКА',s:'события III–IV эпизодов перед угощением зверей',c:'flag'},
+{id:'alice3',x:1480,y:1450,t:'Если ветка Алисы',s:'важно не уйти обратно к Полине',c:'choice'},
+{id:'tell_pol',x:1200,y:1600,t:'ПОЛИНА / рассказать о Ромке',s:'сдвиг к Полине; может закрыть чистую ветку Алисы',c:'flag'},
+{id:'romka3',x:1760,y:1600,t:'РОМКА / не сдавать спектакль',s:'сохраняет ветку Алисы',c:'flag'},
+{id:'pol3',x:760,y:1450,t:'Если ветка Полины',s:'сцены Полины и амулет',c:'choice'},
+{id:'amulet',x:760,y:1600,t:'Взять амулет Полины?',s:'да = защита от Ромки; нет = Рома может убить Антона',c:'choice'},
+{id:'amu_yes',x:560,y:1750,t:'ВЗЯТЬ',s:'флаг: амулет у Антона',c:'flag'},
+{id:'amu_no',x:960,y:1750,t:'НЕ БРАТЬ',s:'нет защиты: Рома убивает Антона на раннем финале',c:'bad'},
+{id:'c4',x:80,y:1950,t:'ГЛАВА III–IV — улики, Жулька, угощения',band:true},
+{id:'evidence',x:1320,y:2050,t:'Собрать улики?',s:'полный набор: 5 улик + фоторобот для следственной ветки',c:'choice'},
+{id:'e_all',x:980,y:2200,t:'СОБРАТЬ ВСЁ',s:'номер, варежка, кассета, перстень, снимок косы + фоторобот',c:'flag'},
+{id:'e_miss',x:1660,y:2200,t:'ПРОПУСТИТЬ ЧАСТЬ',s:'часть концовок становится недоступна',c:'bad'},
+{id:'photo',x:1320,y:2350,t:'Фоторобот Заячьей губы',s:'Эпизод III: составить у Тихонова, если Антон заметил Заячью губу',c:'choice'},
+{id:'lip_yes',x:1040,y:2500,t:'С ЗАЯЧЬЕЙ ГУБОЙ',s:'ведёт к одним вариантам раскрытия',c:'flag'},
+{id:'lip_no',x:1600,y:2500,t:'БЕЗ ЗАЯЧЬЕЙ ГУБЫ',s:'ведёт к другим вариантам раскрытия',c:'flag'},
+{id:'zhulka',x:2240,y:2050,t:'Жулька',s:'жива/мертва влияет на мясо для зверей и несколько финалов',c:'choice'},
+{id:'dog_live',x:2080,y:2200,t:'ПОЩАДИТЬ',s:'нет мяса Жульки; некоторые плохие финалы',c:'flag'},
+{id:'dog_kill',x:2400,y:2200,t:'УБИТЬ / ударить',s:'появляется мясо Жульки',c:'bad'},
+{id:'treat',x:2720,y:2350,t:'Угощения зверей в конце IV',s:'ключевой разворот перед V',c:'choice'},
+{id:'treat_take',x:2540,y:2500,t:'ПРИНЯТЬ',s:'закрепляет ветку Зайчика/одиночки',c:'bad'},
+{id:'treat_refuse',x:2900,y:2500,t:'ОТКАЗАТЬСЯ',s:'сохраняет Полину/Алису',c:'flag'},
+{id:'escort',x:2240,y:2350,t:'Кого провожать?',s:'меняет сцены и условия отдельных финалов',c:'choice'},
+{id:'esc_pol',x:2080,y:2500,t:'ПОЛИНУ',s:'важно для части полининских финалов',c:'flag'},
+{id:'esc_kat',x:2400,y:2500,t:'КАТЮ',s:'важно для части плохих финалов',c:'flag'},
+{id:'c5',x:80,y:2700,t:'ГЛАВА V — финальные выборы',band:true},
+{id:'mitten',x:520,y:2800,t:'Варежка Вовы',s:'получается в I, проверяется в V',c:'choice'},
+{id:'mitten_take',x:360,y:2950,t:'ВЗЯТЬ',s:'Эпизод I: взять варежку на кромке леса',c:'flag'},
+{id:'mitten_run',x:680,y:2950,t:'УБЕЖАТЬ',s:'ачивка/улика пропущена / ветка расследования слабее',c:'bad'},
+{id:'cassette',x:1080,y:2800,t:'Кассета / телевизор',s:'получается в I, проверяется в V',c:'choice'},
+{id:'cassette_yes',x:920,y:2950,t:'НАСТРОИТЬ / ВЗЯТЬ',s:'Эпизод I: записать репортаж на кассету',c:'flag'},
+{id:'cassette_no',x:1240,y:2950,t:'ИСКАТЬ КАНАЛЫ / пропустить',s:'улика пропущена / ветка расследования слабее',c:'bad'},
+{id:'pills',x:1640,y:2800,t:'Галлюцинации: таблетки?',s:'крупная развилка Полины/Алисы',c:'choice'},
+{id:'pill_yes',x:1480,y:2950,t:'ПРИНЯТЬ',s:'ведёт к «Сбежавший из комы» на руте Полины',c:'flag'},
+{id:'pill_no',x:1800,y:2950,t:'НЕ ПРИНИМАТЬ',s:'продолжает финальную ночь',c:'flag'},
+{id:'call',x:2200,y:2800,t:'Позвонить милиционеру?',s:'работает при наличии номера/улик',c:'choice'},
+{id:'call_yes',x:2040,y:2950,t:'ПОЗВОНИТЬ',s:'активирует следственную линию',c:'flag'},
+{id:'call_no',x:2360,y:2950,t:'НЕ ЗВОНИТЬ',s:'часть расследовательских финалов закрыта',c:'bad'},
+{id:'door',x:2760,y:2800,t:'Ночные гости',s:'пустить или не пустить',c:'choice'},
+{id:'door_yes',x:2600,y:2950,t:'ВПУСТИТЬ',s:'звери/дети входят; открывает большинство финалов V',c:'flag'},
+{id:'door_no',x:2920,y:2950,t:'НЕ ВПУСКАТЬ',s:'ведёт к изоляционным финалам: Антон/Оля/посёлок',c:'bad'},
+{id:'meat',x:3160,y:3100,t:'Что отдать зверям?',s:'зависит от Жульки и морозилки',c:'choice'},
+{id:'meat_dog',x:3000,y:3250,t:'МЯСО ЖУЛЬКИ',s:'нужно для многих веток с гостями',c:'bad'},
+{id:'meat_freezer',x:3320,y:3250,t:'МЯСО ИЗ МОРОЗИЛКИ',s:'другая плохая ветка',c:'bad'},
+{id:'save',x:2360,y:3200,t:'Кого выбрать / спасти?',s:'самая частая финальная развилка',c:'choice'},
+{id:'hit_close',x:1720,y:3200,t:'УДАРИТЬ БЛИЗКОГО',s:'Олю, Полину или Рому — ведёт к «Безумному миру»',c:'bad'},
+{id:'save_anton',x:1900,y:3350,t:'АНТОН',s:'чаще гибель/исчезновение Антона',c:'flag'},
+{id:'save_olya',x:2220,y:3350,t:'ОЛЯ',s:'часть финалов с Олей/маской/лесом',c:'flag'},
+{id:'save_polina',x:2540,y:3350,t:'ПОЛИНА',s:'ветки гибели/спасения Полины',c:'flag'},
+{id:'save_claw',x:2860,y:3350,t:'КОГОТЬ',s:'открывает коготь/крест/амулет',c:'flag'},
+{id:'cross',x:2860,y:3500,t:'Крест / амулет',s:'молиться, отдать амулет Оле или забрать себе',c:'choice'},
+{id:'pray',x:2620,y:3650,t:'ПРОДОЛЖАТЬ МОЛИТЬСЯ',s:'«В тихом омуте…»',c:'flag'},
+{id:'amu_olya',x:2860,y:3650,t:'ОТДАТЬ АМУЛЕТ ОЛЕ',s:'«Кровавый коготь»',c:'flag'},
+{id:'amu_self',x:3100,y:3650,t:'ЗАБРАТЬ СЕБЕ',s:'«Звери среди нас»',c:'flag'},
+{id:'mask5',x:1600,y:3200,t:'Маска в финале',s:'финальная развилка Алисы',c:'choice'},
+{id:'mask_wear',x:1360,y:3350,t:'НАДЕТЬ',s:'«Следы на снегу» / «Таёжный кошмар» / «Рецепт любви»',c:'flag'},
+{id:'mask_leave',x:1600,y:3350,t:'НЕ НАДЕВАТЬ',s:'переход к разбить/оставить/обнять',c:'flag'},
+{id:'mask_break',x:1840,y:3500,t:'РАЗБИТЬ',s:'может вести к «Контракт с Дьяволом» или «Гений и Мрак»',c:'flag'},
+{id:'hug',x:1720,y:3650,t:'ОБНЯТЬ ПОЛИНУ',s:'«Гений и Мрак»',c:'good'},
+{id:'leave_pol',x:1960,y:3650,t:'ОСТАВИТЬ ПОЛИНУ',s:'«Контракт с Дьяволом»',c:'good'},
+{id:'c6',x:80,y:3820,t:'КОНЦОВКИ — условия собираются из флагов выше',band:true},
+{id:'romka_no_amulet',x:930,y:1885,t:'ПРОВЕРКА: нет амулета',s:'Рома нападает на Антона после сцены у Полины',c:'check'},
+{id:'c6_note',x:120,y:3910,t:'Концовки в один ряд',s:'названия карточек = достижения Steam; внутри указано название концовки',c:'root'},
+
+{id:'end_domestic',x:120,y:4050,t:'Школяр-убийца',s:'Концовка: Школяр-убийца<br>⭐⭐☆☆☆ · 💀 Плохая · ранний финал<br>Рома нападает на Антона после сцены с Полиной. Без амулета у Антона нет защиты, поэтому конфликт заканчивается убийством ещё до большой финальной ночи. После этого история резко обрывается трагедией, а кошмар леса даже не успевает раскрыться полностью.',c:'end'},
+{id:'end_missing',x:510,y:4050,t:'Консерва',s:'Концовка: Исчезнувшие в ночи<br>⭐⭐⭐☆☆ · 💀 Плохая · ветка Зайчика<br>Антон не впускает ночного гостя и выбирает себя, но это не спасает его. Он исчезает, словно становится очередной вещью, которую лес забрал и спрятал. В финале остаётся ощущение бытового ужаса: мальчик был дома, а потом его просто больше нет.',c:'end'},
+{id:'end_apocalypse',x:900,y:4050,t:'Апокалипсис сегодня',s:'Концовка: Апокалипсис сегодня<br>⭐⭐⭐☆☆ · 💀 Плохая · ветка Зайчика<br>Антон не впускает гостя, но выбирает Олю, и кошмар всё равно прорывается наружу. Дом перестаёт быть безопасным местом, а происходящее ощущается уже не как личный страх Антона, а как начало полного распада привычного мира.',c:'end'},
+{id:'end_coma',x:1290,y:4050,t:'Синяя таблетка / Красная таблетка',s:'Концовка: Сбежавший из комы<br>⭐⭐☆☆☆ · 😐 Нейтральная · ветка Полины<br>Во время галлюцинаций Антон принимает таблетки. Финал оставляет двусмысленность: всё произошедшее можно воспринимать как мистику леса, а можно — как болезнь, травму или сознание мальчика, который пытается сбежать из собственного кошмара.',c:'end'},
+{id:'end_pack',x:1680,y:4050,t:'Стая убийц',s:'Концовка: Стая убийц<br>⭐⭐⭐⭐☆ · 💀 Плохая · ветка Полины<br>Антон впускает гостей, использует мясо Жульки и выбирает Олю. В результате Оля оказывается втянута в звериный круг насилия. Это не просто смерть или исчезновение: ребёнок становится частью той самой стаи, которая охотится на других.',c:'end'},
+
+{id:'end_rage',x:2070,y:4050,t:'Животная ярость',s:'Концовка: Животная ярость<br>⭐⭐⭐⭐☆ · 💀 Плохая · ветка Полины<br>Финал завязан на Полину и звериную сторону происходящего. Полина срывается, теряя человеческий облик не только внешне, но и внутренне. В этой развязке любовь и привязанность не спасают, а превращаются в ярость и голод леса.',c:'end'},
+{id:'end_mad',x:2460,y:4050,t:'Дурка зовёт',s:'Концовка: Безумный мир<br>⭐⭐⭐☆☆ · 💀 Плохая<br>Антон пытается ударить близкого человека — Олю, Полину или Рому. После этого реальность окончательно рассыпается. Финал приводит к психиатрической клинике: для внешнего мира Антон уже не герой мистической истории, а сломанный ребёнок, утративший связь с реальностью.',c:'end'},
+{id:'end_boy',x:2850,y:4050,t:'А был ли мальчик?',s:'Концовка: А был ли мальчик?<br>⭐⭐⭐⭐☆ · 🌑 Мрачная · ветка Полины<br>Антон выбирает себя, но не получает настоящего спасения. Он исчезает настолько бесследно, что сама память о нём начинает казаться сомнительной. Финал оставляет самый неприятный вопрос: был ли Антон вообще человеком из реальности или уже частью лесной легенды.',c:'end'},
+{id:'end_claw',x:3240,y:4050,t:'Кровавый коготь',s:'Концовка: Кровавый коготь<br>⭐⭐⭐⭐☆ · 😐 Нейтральная · ветка Полины<br>Антон выходит на развилку с когтем и амулетом и отдаёт амулет Оле. Оля получает защиту, но вместе с ней — связь с лесной силой. Финал выглядит как спасение, но с тяжёлой ценой: сила не исчезает, она просто переходит дальше.',c:'end'},
+{id:'end_beasts',x:3630,y:4050,t:'Звери среди нас',s:'Концовка: Звери среди нас<br>⭐⭐⭐⭐☆ · 😐 Нейтральная · ветка Полины<br>Антон оставляет амулет себе и сохраняет связь со звериной силой. Он не погибает и не исчезает, но уже не может быть обычным мальчиком. Финал про жизнь между двумя мирами: человеческим посёлком и тем, что прячется в лесу.',c:'end'},
+
+{id:'end_omut',x:4020,y:4050,t:'Звезда Полынь',s:'Концовка: В тихом омуте…<br>⭐⭐⭐⭐⭐ · 🙂 Хорошая · ветка Полины<br>Антон выбирает крест и продолжает молиться, отказываясь от звериной силы. Это один из самых светлых финалов: герой сопротивляется не хитростью и не насилием, а верой, выдержкой и отказом играть по правилам леса.',c:'end'},
+{id:'end_hunt',x:4410,y:4050,t:'Без лишних глаз',s:'Концовка: Сезон охоты<br>⭐⭐⭐⭐⭐ · 🙂 Хорошая · Алиса / расследование<br>Антон собирает улики и вызывает Тихонова, но фоторобот составлен без заячьей губы. Оля оказывается в центре финала. Правда раскрывается не полностью: охота будто продолжается, но у людей появляется шанс увидеть, что происходит в посёлке.',c:'end'},
+{id:'end_shadows',x:4800,y:4050,t:'Погасший свет',s:'Концовка: Тени прошлого<br>⭐⭐⭐⭐⭐ · 🙂 Хорошая · Алиса / расследование<br>Путь похож на следственную ветку, но выбор уходит к Полине. Финал сильнее связан с прошлым, с личной драмой и тенями старых событий. Лес остаётся опасным, но история перестаёт быть только детским кошмаром и становится частью прошлого всего посёлка.',c:'end'},
+{id:'end_snow',x:5190,y:4050,t:'Бег по краю пропасти',s:'Концовка: Следы на снегу<br>⭐⭐⭐⭐⭐ · 🙂 Лучшая следственная · Алиса<br>Антон собирает улики, правильно указывает заячью губу, вызывает Тихонова и выбирает Олю. Это одна из самых полных развязок расследования: тайна исчезновений раскрывается максимально широко, а у героев появляется самый сильный шанс выбраться из кошмара.',c:'end'},
+{id:'end_call',x:5580,y:4050,t:'Последний рывок',s:'Концовка: Зов пропавших<br>⭐⭐⭐⭐☆ · 😐 Нейтральная · Алиса / Полина<br>Антон выходит на сильную следственную линию, но выбирает Полину. Маска не надевается, и Полина уходит за зовом леса и пропавших детей. Финал красивый и тревожный: он больше похож не на спасение, а на уход за пределы человеческого мира.',c:'end'},
+
+{id:'end_contract',x:5970,y:4050,t:'Сигма бой',s:'Концовка: Контракт с Дьяволом<br>⭐⭐⭐⭐☆ · 💀 Плохая · Алиса<br>Антон не надевает маску, разбивает её и отвергает Полину. Вместо человеческой привязанности он выбирает силу и сделку с лесом. Это финал про отказ от слабости и сочувствия, но цена такой силы — потеря человечности.',c:'end'},
+{id:'end_taiga',x:6360,y:4050,t:'Таёжный кошмар',s:'Концовка: Таёжный кошмар<br>⭐⭐⭐⭐☆ · 💀 Плохая · Алиса<br>Антон надевает маску и окончательно проигрывает лесу. Даже собранные улики и попытка разобраться не спасают, если в финале герой выбирает роль, которую ему навязывает кошмар. Лесная сказка становится не разгадкой, а ловушкой.',c:'end'},
+{id:'end_recipe',x:6750,y:4050,t:'Путь тьмы',s:'Концовка: Рецепт любви<br>⭐⭐⭐⭐☆ · 😐 Нейтральная · Алиса<br>Линия Алисы превращает романтику в часть лесного ужаса. Антон не просто выбирает любовь или симпатию — он выбирает её искажённую, тёмную форму. Финал выглядит почти красивым, но внутри него любовь смешана с зависимостью, властью и кошмаром.',c:'end'},
+{id:'end_genius',x:7140,y:4050,t:'Гений и Мрак',s:'Концовка: Гений и Мрак<br>⭐⭐⭐⭐⭐ · 🙂 Хорошая · Алиса / Полина<br>Антон разбивает маску и обнимает Полину. Это финал, где он отказывается от роли зверя и от сделки с лесом ради живого человеческого чувства. В нём есть тьма, но выбор Антона остаётся человеческим.',c:'end'},
+{id:'end_ep4',x:7530,y:4050,t:'Чужой',s:'Концовка: Домашнее насилие<br>⭐⭐⭐☆☆ · 💀 Плохая · ветка Зайчика<br>Антон принимает роль Зайчика, а затем впускает гостя. Кошмар приходит не в лес и не на дорогу, а прямо домой. Самое страшное здесь в бытовом ощущении: зло входит в квартиру как что-то почти обычное, и дом перестаёт быть защитой.',c:'end'}
+];
+const edges=[['start','phone'],['phone','p_yes','взять'],['phone','p_no','не взять'],['p_yes','semen'],['p_no','semen'],['semen','fight','дать отпор'],['semen','submit','стерпеть'],['fight','walk'],['walk','polina_route','Полина'],['walk','alice_route','Алиса'],['submit','mask2'],['mask2','wear2','надеть'],['mask2','send2','послать'],['polina_route','polina_send','послать'],['polina_send','pol3'],['alice_route','alice3'],['alice3','tell_pol','Полина'],['alice3','romka3','Ромка'],['pol3','amulet'],['amulet','amu_yes','взять'],['amulet','amu_no','не брать'],['romka3','evidence'],['tell_pol','evidence'],['amu_yes','evidence'],['amu_no','evidence'],['send2','bunny_route'],['wear2','bunny_route'],['bunny_route','treat','III–IV эпизоды'],['evidence','e_all','собрать'],['evidence','e_miss','пропустить'],['e_all','photo'],['e_miss','zhulka'],['photo','lip_yes','с губой'],['photo','lip_no','без губы'],['lip_yes','zhulka'],['lip_no','zhulka'],['zhulka','dog_live','пощадить'],['zhulka','dog_kill','убить'],['dog_live','escort'],['dog_kill','escort'],['escort','esc_pol','Полина'],['escort','esc_kat','Катя'],['esc_pol','treat'],['esc_kat','treat'],['treat','treat_take','принять'],['treat','treat_refuse','отказаться'],['treat_take','mitten'],['treat_refuse','mitten'],['mitten','mitten_take','взять'],['mitten','mitten_run','убежать'],['mitten_take','cassette'],['mitten_run','cassette'],['cassette','cassette_yes','взять'],['cassette','cassette_no','пропустить'],['cassette_yes','pills'],['cassette_no','pills'],['pills','pill_yes','принять'],['pills','pill_no','нет'],['pill_no','call'],['call','call_yes','позвонить'],['call','call_no','нет'],['call_yes','door'],['call_no','door'],['door','door_yes','впустить'],['door','door_no','не впускать'],['door_yes','meat'],['door_no','save'],['meat','meat_dog','Жулька'],['meat','meat_freezer','морозилка'],['meat_dog','save'],['meat_freezer','save'],['save','save_anton','Антон'],['save','save_olya','Оля'],['save','save_polina','Полина'],['save','save_claw','коготь'],['save_claw','cross'],['cross','pray','крест'],['cross','amu_olya','амулет Оле'],['cross','amu_self','амулет себе'],['save_olya','mask5'],['save_polina','mask5'],['mask5','mask_wear','надеть'],['mask5','mask_leave','не надевать'],['mask_leave','mask_break','разбить'],['mask_break','hug','обнять'],['mask_break','leave_pol','оставить'],
+['amu_no','romka_no_amulet','нет амулета'],
+['romka_no_amulet','end_domestic','Рома убивает'],
+
+['pill_yes','end_coma','принять таблетки'],
+['save_anton','end_boy','Антон'],
+['pray','end_omut','молиться'],
+['amu_olya','end_claw','амулет Оле'],
+['amu_self','end_beasts','амулет себе'],
+['hug','end_genius','обнять'],
+['leave_pol','end_contract','оставить'],
+
+['mask_wear','end_snow','маска + улики'],
+['mask_wear','end_taiga','маска + слабая линия'],
+['mask_wear','end_recipe','маска + Алиса'],
+['mask_leave','end_call','не надевать'],
+
+['door_no','end_missing','не впускать'],
+['meat_freezer','end_apocalypse','морозилка'],
+['meat_dog','end_pack','Оля/Полина'],
+['meat_dog','end_rage','Алиса + Полина'],
+['door_yes','hit_close','ударить'],['hit_close','end_mad','дурка'],
+['lip_no','end_hunt','Оля'],
+['lip_no','end_shadows','Полина'],
+['door_yes','end_ep4','ветка Зайчика']
+];
+const world=document.getElementById('world'), svg=document.getElementById('svg');
+for(const n of nodes){ if(n.band){const d=document.createElement('div');d.className='chapterBand';d.id=n.id;d.style.left=n.x+'px';d.style.top=n.y+'px';d.textContent=n.t;world.appendChild(d);continue;} const d=document.createElement('div');d.className='node '+(n.c||'choice');d.id=n.id;d.style.left=n.x+'px';d.style.top=n.y+'px';d.innerHTML='<b>'+n.t+'</b>'+(n.s?'<span class="small">('+n.s+')</span>':'');world.appendChild(d);} 
+function center(id){const el=document.getElementById(id);return {x:parseInt(el.style.left)+el.offsetWidth/2,y:parseInt(el.style.top)+el.offsetHeight/2, el}}
+function edgeClass(a,b,l){
+  const text=(l||'').toLowerCase(), target=document.getElementById(b), tc=target?.className||'';
+  if(text.includes('полин')) return 'route-polina';
+  if(text.includes('алис')) return 'route-alice';
+  if(text.includes('нет')||text.includes('пропустить')||text.includes('не ')||text.includes('стерпеть')||text.includes('надеть')||text.includes('убить')||text.includes('морозилка')||tc.includes('bad')) return 'route-bad';
+  if(text.includes('взять')||text.includes('собрать')||text.includes('позвонить')||text.includes('губой')||text.includes('коготь')||tc.includes('flag')) return 'route-item';
+  if(tc.includes('good')) return 'route-good';
+  if(tc.includes('end')) return 'route-end';
+  return 'route-neutral';
+}
+function markerFor(cls){return { 'route-polina':'url(#arrowPolina)','route-alice':'url(#arrowAlice)','route-bad':'url(#arrowBad)','route-good':'url(#arrowGood)','route-item':'url(#arrowItem)','route-end':'url(#arrowEnd)' }[cls]||'url(#arrowNeutral)'}
+function makeDefs(){
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  const items=[['Neutral','#aab2c2'],['Polina','#ff75ad'],['Alice','#d97706'],['Bad','#ff6d70'],['Good','#65d489'],['Item','#84cc16'],['End','#b59cff']];
+  for(const [name,col] of items){const m=document.createElementNS('http://www.w3.org/2000/svg','marker');m.setAttribute('id','arrow'+name);m.setAttribute('viewBox','0 0 10 10');m.setAttribute('refX','8');m.setAttribute('refY','5');m.setAttribute('markerWidth','7');m.setAttribute('markerHeight','7');m.setAttribute('orient','auto-start-reverse');const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d','M 0 0 L 10 5 L 0 10 z');path.setAttribute('fill',col);m.appendChild(path);defs.appendChild(m)}
+  svg.appendChild(defs);
+}
+function routePath(A,B,idx){
+  const dy=B.y-A.y, dx=B.x-A.x;
+  if(Math.abs(dy)<160){ const mx=(A.x+B.x)/2 + ((idx%3)-1)*30; return {d:`M ${A.x} ${A.y} L ${mx} ${A.y} L ${mx} ${B.y} L ${B.x} ${B.y}`, lx:mx, ly:(A.y+B.y)/2}; }
+  const offset=((idx%7)-3)*18;
+  const hubY=A.y + Math.max(70, Math.min(170, Math.abs(dy)*0.38)) + offset;
+  return {d:`M ${A.x} ${A.y} L ${A.x} ${hubY} L ${B.x} ${hubY} L ${B.x} ${B.y}`, lx:(A.x+B.x)/2, ly:hubY};
+}
+function draw(){
+  svg.innerHTML=''; makeDefs(); document.getElementById('labels').innerHTML='';
+  edges.forEach(([a,b,l],idx)=>{const A=center(a),B=center(b);const cls=edgeClass(a,b,l);const r=routePath(A,B,idx);
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d',r.d); p.setAttribute('class','edge '+cls+(Math.abs(B.y-A.y)>550?' dashed':'')); p.setAttribute('marker-end',markerFor(cls)); p.dataset.a=a;p.dataset.b=b;svg.appendChild(p);
+    for(const [x,y,id,where] of [[A.x,A.y,a,'from'],[B.x,B.y,b,'to']]){const c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',5);c.setAttribute('fill',getComputedStyle(document.documentElement).getPropertyValue(cls==='route-polina'?'--bad':'--line')||'#888'); c.setAttribute('class','port '+cls); c.dataset.a=a;c.dataset.b=b;svg.appendChild(c)}
+    if(l){const lab=document.createElement('div');lab.className='linkLabel '+cls;lab.textContent=l;lab.dataset.a=a;lab.dataset.b=b;lab.style.left=r.lx+'px';lab.style.top=(r.ly-2)+'px';document.getElementById('labels').appendChild(lab)}
+  });
+  document.querySelectorAll('.node').forEach(n=>{n.onmouseenter=()=>highlight(n.id,true); n.onmouseleave=()=>highlight(n.id,false);});
+}
+function highlight(id,on){
+  document.querySelectorAll('.edge,.linkLabel,.port').forEach(el=>{const hit=el.dataset.a===id||el.dataset.b===id; el.classList.toggle('hot',on&&hit); el.classList.toggle('dim',on&&!hit);});
+  document.querySelectorAll('.node').forEach(el=>{const connected=edges.some(e=>(e[0]===id&&e[1]===el.id)||(e[1]===id&&e[0]===el.id)); el.classList.toggle('hidden',on && !(el.id===id||connected));});
+}
+setTimeout(draw,100);
+
+setTimeout(()=>{
+['alice_route','alice3','romka3','tell_pol'].forEach(id=>{
+ const el=document.getElementById(id);
+ if(el){
+   el.style.background='#ffe5c7';
+   el.style.borderColor='#d97706';
+ }
+});
+},50);
+
+
+document.addEventListener('dragstart', e => e.preventDefault());
+
+let scale=.55, tx=40, ty=-40; function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`} apply();
+const vp=document.getElementById('viewport'); let drag=false,lx=0,ly=0;
+vp.onmousedown=e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='select'||tag==='textarea'||tag==='button') return;
+  drag=true;
+  lx=e.clientX;
+  ly=e.clientY;
+  document.body.classList.add('dragging');
+  if(window.getSelection) window.getSelection().removeAllRanges();
+  e.preventDefault();
+};
+window.onmouseup=()=>{
+  drag=false;
+  document.body.classList.remove('dragging');
+};
+window.onmousemove=e=>{
+  if(!drag)return;
+  if(window.getSelection) window.getSelection().removeAllRanges();
+  tx+=e.clientX-lx;
+  ty+=e.clientY-ly;
+  lx=e.clientX;
+  ly=e.clientY;
+  apply();
+}; vp.onwheel=e=>{e.preventDefault();const old=scale;scale=Math.min(1.8,Math.max(.25,scale*(e.deltaY<0?1.1:.9))); const rect=vp.getBoundingClientRect(), mx=e.clientX-rect.left,my=e.clientY-rect.top; tx=mx-(mx-tx)*(scale/old); ty=my-(my-ty)*(scale/old);apply()};
+document.getElementById('zin').onclick=()=>{scale=Math.min(1.8,scale*1.15);apply()};document.getElementById('zout').onclick=()=>{scale=Math.max(.25,scale*.85);apply()};document.getElementById('reset').onclick=()=>{scale=.55;tx=40;ty=-40;apply()};
+document.getElementById('search').oninput=e=>{const q=e.target.value.toLowerCase().trim(); clearEndingPath && clearEndingPath(); document.querySelectorAll('.node').forEach(el=>el.classList.toggle('hidden',q && !el.innerText.toLowerCase().includes(q))); document.querySelectorAll('.edge,.linkLabel,.port').forEach(el=>el.classList.toggle('hidden',q));};
+
+const endingPaths = {
+  "Школяр-убийца": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_no","romka_no_amulet","end_domestic"],
+    text:"Ранний финал IV эпизода. Надёжный маршрут: дать отпор Семёну → выбрать Полину → послать хулиганов/не принимать их игру → в ветке Полины не взять амулет. Альтернатива: ветка Алисы, но выбрать рисунок Полины."
+  },
+  "Чужой": {
+    nodes:["start","phone","p_no","semen","submit","mask2","wear2","bunny_route","treat","treat_take","door","door_yes","end_ep4"],
+    text:"Ветка Зайчика: стерпеть и надеть маску во II эпизоде либо принять угощение зверей в IV; в V эпизоде впустить гостя."
+  },
+  "Консерва": {
+    nodes:["start","phone","p_no","semen","submit","mask2","send2","bunny_route","treat","treat_take","door","door_no","save","save_anton","end_missing"],
+    text:"Ветка Зайчика → не впускать гостя → выбрать Антона."
+  },
+  "Апокалипсис сегодня": {
+    nodes:["start","phone","p_no","semen","submit","mask2","wear2","bunny_route","treat","treat_take","door","door_no","save","save_olya","end_apocalypse"],
+    text:"Ветка Зайчика → не впускать гостя → выбрать Олю."
+  },
+  "Синяя таблетка / Красная таблетка": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_live","escort","esc_pol","treat","treat_refuse","pills","pill_yes","end_coma"],
+    text:"Ветка Полины → отказаться от угощений зверей в IV → во время галлюцинаций принять таблетки. Собака и проводы могут варьироваться."
+  },
+  "Стая убийц": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","pills","pill_no","door","door_yes","meat","meat_dog","save","save_olya","end_pack"],
+    text:"Ветка Полины → отказаться от угощений → убить Жульку → проводить Катю → не принимать таблетки → впустить гостей → отдать собачатину → выбрать Олю."
+  },
+  "Животная ярость": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_live","escort","esc_kat","treat","treat_refuse","pills","pill_no","door","door_yes","meat","meat_dog","save","save_polina","end_rage"],
+    text:"Ветка Полины → отказаться от угощений → пощадить/не добить Жульку → проводить Катю → не принимать таблетки → впустить гостей → отдать собачатину → выбрать Полину."
+  },
+  "Дурка зовёт": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","pills","pill_no","door","door_yes","hit_close","end_mad"],
+    text:"Ветка Полины → отказаться от угощений → убить Жульку → проводить Катю → не принимать таблетки → впустить гостей → ударить Олю, Полину или Рому."
+  },
+  "А был ли мальчик?": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_live","escort","esc_pol","treat","treat_refuse","pills","pill_no","door","door_no","save","save_anton","end_boy"],
+    text:"Ветка Полины → пощадить Жульку → проводить Полину → не принимать таблетки → не впускать гостей → выбрать Антона."
+  },
+  "Кровавый коготь": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_kill","escort","esc_pol","treat","treat_refuse","pills","pill_no","door","door_yes","save","save_claw","cross","amu_olya","end_claw"],
+    text:"Ветка Полины → взять амулет → убить Жульку → проводить Полину → не принимать таблетки → впустить гостей → выбрать коготь/амулет → отдать амулет Оле."
+  },
+  "Звери среди нас": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_kill","escort","esc_pol","treat","treat_refuse","pills","pill_no","door","door_yes","save","save_claw","cross","amu_self","end_beasts"],
+    text:"Ветка Полины → взять амулет → убить Жульку → проводить Полину → не принимать таблетки → впустить гостей → выбрать коготь/амулет → оставить амулет себе."
+  },
+  "Звезда Полынь": {
+    nodes:["start","phone","p_yes","semen","fight","walk","polina_route","polina_send","pol3","amulet","amu_yes","zhulka","dog_kill","escort","esc_pol","treat","treat_refuse","pills","pill_no","door","door_yes","save","save_claw","cross","pray","end_omut"],
+    text:"Ветка Полины → взять амулет → убить Жульку → проводить Полину → не принимать таблетки → впустить гостей → выбрать крест → продолжать молиться."
+  },
+  "Без лишних глаз": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_no","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","end_hunt"],
+    text:"Ветка Алисы → собрать все улики → вызвать Тихонова → фоторобот БЕЗ заячьей губы → впустить гостей → отдать собачатину → выбрать Олю."
+  },
+  "Погасший свет": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_no","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_polina","end_shadows"],
+    text:"Ветка Алисы → собрать все улики → вызвать Тихонова → фоторобот БЕЗ заячьей губы → впустить гостей → отдать собачатину → выбрать Полину."
+  },
+  "Бег по краю пропасти": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","mask5","mask_wear","end_snow"],
+    text:"Ветка Алисы → все улики → правильный фоторобот с заячьей губой → вызвать Тихонова → впустить гостей → выбрать Олю → надеть маску."
+  },
+  "Последний рывок": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_polina","mask5","mask_leave","end_call"],
+    text:"Ветка Алисы → все улики → правильный фоторобот с заячьей губой → вызвать Тихонова → впустить гостей → выбрать Полину → не надевать маску."
+  },
+  "Сигма бой": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","mask5","mask_leave","mask_break","leave_pol","end_contract"],
+    text:"Ветка Алисы → все улики → правильный фоторобот → вызвать Тихонова → выбрать Олю → не надевать маску → разбить маску → отвергнуть Полину."
+  },
+  "Таёжный кошмар": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","mask5","mask_wear","end_taiga"],
+    text:"Ветка Алисы → все улики → правильный фоторобот → вызвать Тихонова → выбрать Олю → надеть маску. Вариант отличается от «Следов…» дальнейшим финальным выбором/личиной."
+  },
+  "Путь тьмы": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","mask5","mask_leave","mask_break","end_recipe"],
+    text:"Ветка Алисы → все улики → правильный фоторобот → выбрать Олю → не надевать маску/разбить её → выбрать заячью личину у Хозяина леса."
+  },
+  "Гений и Мрак": {
+    nodes:["start","phone","p_yes","semen","fight","walk","alice_route","alice3","romka3","evidence","e_all","photo","lip_yes","zhulka","dog_kill","escort","esc_kat","treat","treat_refuse","call","call_yes","door","door_yes","meat","meat_dog","save","save_olya","mask5","mask_leave","mask_break","hug","end_genius"],
+    text:"Ветка Алисы → все улики → правильный фоторобот → выбрать Олю → не надевать маску → разбить маску → обнять Полину."
+  }
+};
+function initEndingSearch(){
+  const sel=document.getElementById('endingSelect');
+  if(!sel) return;
+  Object.keys(endingPaths).sort().forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name; opt.textContent=name; sel.appendChild(opt);
+  });
+  document.getElementById('showEndingPath').onclick=()=>showEndingPath(sel.value);
+  document.getElementById('clearEndingPath').onclick=clearEndingPath;
+  sel.onchange=()=>{ if(sel.value) showEndingPath(sel.value); };
+}
+
+function clearEndingPath(){
+  document.querySelectorAll('.pathHit,.dimPath').forEach(el=>{el.classList.remove('pathHit','dimPath');});
+  document.querySelectorAll('.node').forEach(el=>el.classList.remove('hidden'));
+  document.querySelectorAll('.edge,.linkLabel,.port').forEach(el=>el.classList.remove('dim','hot','hidden','pathHit'));
+  const txt=document.getElementById('endingRouteText'); if(txt) txt.textContent='';
+}
+
+function showEndingPath(name){
+  clearEndingPath();
+  const data=endingPaths[name];
+  if(!data) return;
+  const set=new Set(data.nodes);
+  document.querySelectorAll('.node').forEach(el=>{
+    if(set.has(el.id)) el.classList.add('pathHit');
+    else el.classList.add('hidden');
+  });
+  document.querySelectorAll('.edge,.linkLabel,.port').forEach(el=>{
+    const a=el.dataset.a, b=el.dataset.b;
+    if(set.has(a) && set.has(b)) el.classList.add('pathHit');
+    else el.classList.add('dim');
+  });
+  const txt=document.getElementById('endingRouteText');
+  if(txt) txt.textContent = name + "\\n" + data.text;
+}
+
+setTimeout(initEndingSearch,150);
+
+function togglePanel(id){
+  const panel=document.getElementById(id);
+  if(!panel) return;
+  panel.classList.toggle('collapsed');
+  const btn=panel.querySelector('.collapseBtn');
+  if(btn) btn.textContent=panel.classList.contains('collapsed')?'+':'−';
+}
+
+
+</script>
+
+<div class="sourceNote">Проверка v23: исправлены CSS-классы — расширенный стиль концовок применяется только к настоящим финальным карточкам end_*. Названия карточек концовок = достижения Steam.</div>
+
+
+
+<div id="evidencePanel" style="position:fixed;right:20px;top:80px;width:500px;background:#0b0c11;border:1px solid #3b4454;border-radius:12px;padding:14px;color:#eef1f6;z-index:9999;box-shadow:0 8px 25px rgba(0,0,0,.5);font-size:13px;max-height:85vh;overflow:auto">
+<div class="collapsibleHeader"><h3 style="margin:0">🔎 Улики и важные предметы</h3><button class="collapseBtn" onclick="togglePanel('evidencePanel')">−</button></div><div class="panelBody">
+
+<h4 style="margin:8px 0;color:#ffd16a">Улики расследования</h4>
+<table style="width:100%;border-collapse:collapse">
+<tr>
+  <th align="left">Улика</th>
+  <th>Эп.</th>
+  <th align="left">Как получить</th>
+</tr>
+<tr>
+  <td>⭐ Номер Тихонова</td>
+  <td>I</td>
+  <td>После сцены, где Антон обманывает маму и выходит из дома, снять записку с номером местной милиции с холодильника.</td>
+</tr>
+<tr>
+  <td>⭐ Варежка Вовы</td>
+  <td>I</td>
+  <td>На кромке леса найти варежку пропавшего Вовы и выбрать <b>«Взять»</b>, а не «Убежать».</td>
+</tr>
+<tr>
+  <td>⭐ Кассета «Питер Пэн»</td>
+  <td>I</td>
+  <td>После выбора <b>«Настроить»</b> вставить кассету в видеомагнитофон, чтобы записать увиденный репортаж.</td>
+</tr>
+<tr>
+  <td>⭐ Перстень Семёна</td>
+  <td>III</td>
+  <td>На лекции Тихонова два раза открыть папку с делом №131. Антон найдёт перстень-печатку Семёна.</td>
+</tr>
+<tr>
+  <td>⭐ Фоторобот Заячьей губы</td>
+  <td>III</td>
+  <td>Составить фоторобот в мини-игре у Тихонова. Условие: до этого Антон должен заметить Заячью губу по дороге домой с Полиной или с Ромой и Бяшей.</td>
+</tr>
+<tr>
+  <td>⭐ Снимок косы Кати</td>
+  <td>IV</td>
+  <td>Нужны условия: во II эпизоде взять жвачку у Алисы, в III выиграть у Ромы «Полароид», в IV попытаться спасти Катю. После гибели Кати сфотографировать косу с резинкой в лезвиях.</td>
+</tr>
+</table>
+
+<hr>
+
+<b>Для сильной следственной ветки:</b><br>
+Номер Тихонова + Варежка + Кассета + Перстень + Снимок косы + Фоторобот.<br><br>
+<span style="color:#ffcf85">Важно:</span> по ветке Полины снимок косы Кати получить нельзя, поэтому Тихонов не едет на вызов.
+
+<hr>
+
+<h4 style="margin:8px 0;color:#b59cff">🧿 Важные предметы, не улики</h4>
+
+<b>Амулет Полины</b><br>
+Получается в ветке Полины в III эпизоде. Проверяется в финале и влияет на развилки с Когтем.<br><br>
+
+<b>Крест</b><br>
+Используется в одной из финальных развилок V эпизода.<br><br>
+
+<b>Маска</b><br>
+Ключевой предмет финала, особенно для ветки Алисы. Определяет несколько концовок.<br><br>
+
+<b>Коготь</b><br>
+Открывает финальную развилку с амулетом/крестом.<br><br>
+
+<b>Мясо Жульки</b><br>
+Появляется только при определённых выборах в IV эпизоде и влияет на часть звериных финалов.
+</div></div>
+
+
+</div></body></html>
